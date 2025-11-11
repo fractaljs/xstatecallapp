@@ -1,0 +1,96 @@
+generator client {
+  provider = "prisma-client-js"
+}
+generator zero {
+  provider       = "prisma-generator-zero"
+}
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+
+
+model User {
+  id        String     @id @default(cuid())
+  email     String     @unique
+  name      String?
+  avatar    String?
+  status    UserStatus @default(OFFLINE)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  initiatedCalls Call[] @relation("CallInitiator")
+  receivedCalls  Call[] @relation("CallReceiver")
+  callParticipants CallParticipant[]
+
+  @@map("users")
+}
+
+model Call {
+  id          String      @id @default(cuid())
+  initiatorId String
+  receiverId  String?
+  status      CallStatus  @default(PENDING)
+  type        CallType    @default(AUDIO)
+  startedAt   DateTime    @default(now())
+  endedAt     DateTime?
+  duration    Int?        // Duration in seconds
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  initiator User @relation("CallInitiator", fields: [initiatorId], references: [id], onDelete: Cascade)
+  receiver  User? @relation("CallReceiver", fields: [receiverId], references: [id], onDelete: SetNull)
+  
+  participants CallParticipant[]
+
+  @@map("calls")
+}
+
+model CallParticipant {
+  id       String @id @default(cuid())
+  callId   String
+  userId   String
+  joinedAt DateTime @default(now())
+  leftAt   DateTime?
+  role     ParticipantRole @default(PARTICIPANT)
+  status   ParticipantStatus @default(CALLING)
+
+  call Call @relation(fields: [callId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([callId, userId])
+  @@map("call_participants")
+}
+
+enum CallStatus {
+  PENDING
+  RINGING
+  ACTIVE
+  ENDED
+  MISSED
+  DECLINED
+  FAILED
+}
+
+enum CallType {
+  AUDIO
+  VIDEO
+}
+
+enum ParticipantRole {
+  HOST
+  PARTICIPANT
+}
+
+enum UserStatus {
+  ONLINE
+  OFFLINE
+}
+
+enum ParticipantStatus {
+  CALLING
+  CONNECTED
+  DISCONNECTED
+  FAILED
+}

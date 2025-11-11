@@ -6,27 +6,39 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "db:generate": "prisma generate",
+    "db:push": "prisma db push",
+    "db:migrate": "prisma migrate dev",
+    "db:studio": "prisma studio"
   },
   "dependencies": {
+    "@prisma/client": "^6.0.0",
+    "@rocicorp/zero": "^0.24.3000000000",
     "@xstate/react": "^6.0.0",
     "lucide-react": "^0.553.0",
+    "jsonwebtoken": "^9.0.2",
     "motion": "^12.23.24",
     "next": "16.0.1",
+    "pg": "^8.16.3",
     "react": "19.2.0",
     "react-dom": "19.2.0",
     "react-use-measure": "^2.1.7",
     "sonner": "^2.0.7",
     "vaul": "^1.1.2",
-    "xstate": "^5.24.0"
+    "xstate": "^5.24.0",
+    "zod": "^3.25.76"
   },
   "devDependencies": {
+    "@passionfroot/prisma-generator-zero": "^0.4.0",
     "@tailwindcss/postcss": "^4",
+    "@types/jsonwebtoken": "^9.0.5",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.0.1",
+    "prisma": "^6.0.0",
     "tailwindcss": "^4",
     "typescript": "^5"
   }
