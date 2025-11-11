@@ -16,7 +16,7 @@ export type CallType = {
 
 const CallView = () => {
     const state = useSelector(callActor, (snapshot) => snapshot.value);
-    console.log("state", state);
+    console.log("state", state, callActor.getSnapshot().context);
     const showCallView = state !== "idle";
 
     return <Drawer.Root open={showCallView} defaultOpen={showCallView} dismissible={false}>

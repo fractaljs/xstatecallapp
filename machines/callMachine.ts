@@ -14,11 +14,26 @@ type CallEvent =
   | { type: "DISCONNECT" }
   | { type: "REJECT" };
 
-export type CallState = "idle" | "initiating_call" | "failed_to_connect" | "calling" | "ringing" | "connected";
+export type CallState =
+  | "idle"
+  | "initiating_call"
+  | "failed_to_connect"
+  | "calling"
+  | "ringing"
+  | "connected";
+
+const dummyCall: CallType = {
+  callId: "123",
+  participants: [
+    { name: "John Doe", id: "1", status: "online" },
+    { name: "Jane Doe", id: "2", status: "offline" },
+    { name: "Jim Doe", id: "3", status: "busy" },
+  ],
+};
 
 export const callMachine = createMachine(
   {
-    /** @xstate-layout N4IgpgJg5mDOIC5QGMCGAbdBZVyAWAlgHZgB0BE6YAxAMIDyAcowKK0AqA2gAwC6ioAA4B7WAQAuBYUQEgAHogC0ARlWkATAA5lAVgDs6nd3UGAzMs0AaEAE8lygGwAWUjvWn1ATm6mHyz7p6egC+wdZomDj4xGTEEgSokkRQAPoR6NQQ0rFEAG7CANZk6VGEJORE8YnEqekIxPloktI8vK2yImLNMkjyiKo6mqSafp5GDpr6mtPWdgimBq4OniOmOg56ptzKIWEgJbhlOVVJtRgZYABOl8KXpILoiQBmtwC2pAfR5XGS1clp53qeWETSkRFa7V6nXi0lkCgQek0elIDnUThWEyC3CcTistkQ6m2pAMAQc5hW3G4egcOlC4XOpRipCeqAIVAgKXEwjS0hIyHE1AAIgBJADKDGYbC4fA6ohhPVA8LcDmJNNRNOUC2Us0QHm4KPM4w2yic2M0dP2DMOTJZbMgnO5yF5YH51DksHEiTIqCe4iuAAotpSAJTUT5HZms9kOnlEPniSFCOXdOGIZWq9bqDVanUIJy6YYjPTcSZjRyeJwW8NM9I1agAJWFjAA4omQNCU714QMhiN-ONJoiZviENpSB4vJr0ZMTQsq1avsVznWReKmKwOG2O2DUwhPJ4Vd5uG5NAfpnoArmjMphusnBNsd5cU5TPPItbypcanWAIKMUUAOosPWW7JjuXb9DonikMYTiEvemjbA4Gx4nMTiDCizgbOo7iaqeb7YB+ZBfskdb1iwABSUqgV04GKv0eg3hejiokEgwlseuYahofjLN4WionBBGMp+37JEKYoShu0r8FCYGwhBCA7ExpKsXo7GITouZ6PerjlpSYzuNM5p7NW5ROnGLp+hAElrpKm4ynJtEKfRCDptSmbZoxV4lqQU7cBSyE6f4oR7EQwgQHAshmWAsrOQqfQICoUEaNo+iGMYZgWLmigmDorinsWyjHiYnjCUR5CULFTnyruigjMMfiUtwDgBfupjDnMih+BoB5kisiJbFBB7lYuFQnDUAKYHFtWKZoLgbJ4aKtU4xbIaYng5RYQxZhsiJeKi3hBKNEa2tGXKxvGM2dq5HjQZSbg4a1NLUtqI5wSqG0eDsaKmPeui0qZC4RrWyTXXRiUmlmKKGDoCyrYxSJ6Np0zDMYqg7JoQZeCdTIkVANTgy5iW5SpQSsTijj5m9czqUxFgof40zIWVQPvmNFnxpARMJfCazIsV+bOJSWbFlpI5wzeSFLY4OgDpWoVAA */
+    /** @xstate-layout N4IgpgJg5mDOIC5QGMCGAbdBZVyAWAlgHZgB0BE6YAxAMIDyAcowKK0AqA2gAwC6ioAA4B7WAQAuBYUQEgAHogCM3AMwBOUgCZFANhUAONUYAsa-SoDsAGhABPRBbUBWUis37F2408UHjmgF8AmzRMHHxiMmIJAlRJIigAfVD0aghpKKIAN2EAazIU8MISciIYuOIklIRiHLRJaR5eJtkRMQaZJHklJyduUh1ufV6dTTUVbkU1G3sEC29SPu9BxXn9bQsgkIxsXGLM8viqneowACcz4TPSQXQ4gDMrgFtSQr3I0sPK5J2a7OF6lIiE0Wl02jFpLIFAhlOotLoDEY1KZzNY7IhNNwNMNFCNjLopmp5lsQG8IiUUpVqAAlACSjAA4qChKIIZ1QNDcX0BkMRmMJlMZogPK5NGNFLp8dxRhZNsFSTsih9KQlqAARWkAZQYzDYXD4rVZHShSh0ak0pCmmIlvXGQ00QoQam4xlFFm42j0Fl8KhJZP2pDOlSpAEFGJqAOosanMkDg41dTlmeFqSUqYz6WUWHTGR3I-SkDPS92Z9aqP2K94lIMJKnUlgAKT1sfjQJNMOT2lTOfTmdlOcdoxUpDUOe4Fj85t8cu2YSrZBrUCpGu1TFYHBbRrbiaUnamaYzWYH6LmTldZh0ZqcZn8KkvFbn5IK0hIyHEkHVWp16-1-DBW8hHcEB0CwLWlM8dEUYxoMxO881xEciXGfRuGlVDnAfXYn1Ie5UAIKgIEScRhGSF8wDfT9V11DcDX-dptw5RAQLAnQIKgmDVB0R1jFGEcnE0PRvCcdQPWMTClRKXD8MgIiSOQMiKLkWBxDiMhUHud8zgACgmVCAEpqH9D4pII2TSKIV9xE3ejAMY4DQNIcCePY-xOMdFQ7y0AUPHQix9GMO8gnlIhhAgOBZCMkhDRs9lugQABaLiT0SxzULS9K0vccT53ISgwGitl23NYcxQsJxBmzDxejzdxC30cxtF8KZQN9eVIoOSQKgSH5MAKhM7M8bMBmMWVyvUDxWJUR15gtdQPO4YTVEmb1suwlUoD6hi4qtYcVDPCUhga69cxPKdSA8ZxIJAm1x1WgNF0qTbbLi-xpscEd1n0M16pQ5EnDu5UFPfCAnti6FvGHEa-MsDx3B8NFZnzQtRzNTQJmGVMZwVR8AxMmTiPMyzQfbfFXQMTw9GY0D6vcnNHL8nFJjNKDAiCoA */
     id: "callMachine",
     initial: "idle",
     types: {
@@ -42,30 +57,12 @@ export const callMachine = createMachine(
           src: "fetchCallId",
           onDone: {
             target: "calling",
-            actions: assign({
-              call_id: ({ event }) => event.output,
-            }),
+            actions: {
+              type: "assignCallDataFromQuery",
+            },
           },
           onError: {
             target: "failed_to_connect",
-          },
-        },
-      },
-      failed_to_connect: {
-        after: {
-          3000: {
-            target: "idle",
-            actions: {
-              type: "clearCallId",
-            },
-          },
-        },
-        on: {
-          DISCONNECT: {
-            target: "idle",
-            actions: {
-              type: "clearCallId",
-            },
           },
         },
       },
@@ -112,6 +109,24 @@ export const callMachine = createMachine(
           },
         },
       },
+      failed_to_connect: {
+        after: {
+          3000: {
+            target: "idle",
+            actions: {
+              type: "clearCallId",
+            },
+          },
+        },
+        on: {
+          DISCONNECT: {
+            target: "idle",
+            actions: {
+              type: "clearCallId",
+            },
+          },
+        },
+      },
     },
   },
   {
@@ -120,22 +135,29 @@ export const callMachine = createMachine(
         if (!context.call?.participants) {
           return false;
         }
-        return context.call.participants.some(participant => participant.status === 'online');
+        return context.call.participants.some(
+          (participant) => participant.status === "online"
+        );
       },
     },
     actors: {
       fetchCallId: fromPromise(async () => {
         // Simulating an async query with random success/failure
-        return new Promise<string>((resolve, reject) => {
-          setTimeout(() => {
-            // 70% success rate, 30% failure rate
-            if (Math.random() > 0.3) {
-              resolve("123");
-            } else {
-              reject(new Error("Failed to generate call ID"));
-            }
-          }, 1000);
-        });
+        return new Promise<{ call_id: string; call: CallType }>(
+          (resolve, reject) => {
+            setTimeout(() => {
+              // 70% success rate, 30% failure rate
+              if (Math.random() > 0.3) {
+                resolve({
+                  call_id: "123",
+                  call: dummyCall,
+                });
+              } else {
+                reject(new Error("Failed to generate call ID"));
+              }
+            }, 1000);
+          }
+        );
       }),
     },
     actions: {
@@ -149,6 +171,10 @@ export const callMachine = createMachine(
           }
         }
       },
+      assignCallDataFromQuery: assign({
+        call_id: ({ event }: { event: any }) => event.output.call_id,
+        call: ({ event }: { event: any }) => event.output.call,
+      }),
       clearCallId: ({ context }) => {
         context.call_id = undefined;
         context.call = undefined;
