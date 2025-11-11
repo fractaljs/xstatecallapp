@@ -2,9 +2,7 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 
 export interface User {
   id: string;
-  name: string;
   email: string;
-  picture?: string;
 }
 
 export interface AuthContextType {
@@ -38,7 +36,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     // Check for stored auth data on mount
     const storedToken = localStorage.getItem('auth_token');
     const storedUser = localStorage.getItem('auth_user');
-    
+
     if (storedToken && storedUser) {
       try {
         setToken(storedToken);
@@ -49,11 +47,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
         localStorage.removeItem('auth_user');
       }
     }
-    
+
     setIsLoading(false);
   }, []);
 
-  const login = async (email: string, password: string) => {
+  const login = async (email: string) => {
     setIsLoading(true);
     try {
       const response = await fetch('http://localhost:3000/api/auth/login', {
@@ -61,7 +59,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ username: email }),
       });
 
       if (!response.ok) {
@@ -70,10 +68,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
       }
 
       const data = await response.json();
-      
+
       setToken(data.token);
       setUser(data.user);
-      
+
       // Store in localStorage
       localStorage.setItem('auth_token', data.token);
       localStorage.setItem('auth_user', JSON.stringify(data.user));

@@ -5,18 +5,21 @@ import { authenticateRequest, createAuthResponse } from '@/lib/auth'
 export async function POST(request: NextRequest) {
   try {
     const payload = await authenticateRequest(request)
-    const { receiverId, type = 'AUDIO' } = await request.json()
+    const { receiverIds = [], type = 'AUDIO' } = await request.json()
 
     const initiatorId = payload.userId
 
-    if (receiverId) {
-      const receiver = await prisma.user.findUnique({
-        where: { id: receiverId }
+    // Validate all receiver IDs exist
+    if (receiverIds.length > 0) {
+      const receivers = await prisma.user.findMany({
+        where: { id: { in: receiverIds } }
       })
 
-      if (!receiver) {
+      if (receivers.length !== receiverIds.length) {
+        const foundIds = receivers.map(r => r.id)
+        const missingIds = receiverIds.filter(id => !foundIds.includes(id))
         return NextResponse.json(
-          { error: 'Receiver not found' },
+          { error: `Receivers not found: ${missingIds.join(', ')}` },
           { status: 404 }
         )
       }
@@ -25,16 +28,15 @@ export async function POST(request: NextRequest) {
     const call = await prisma.call.create({
       data: {
         initiatorId,
-        receiverId,
         type,
         status: 'PENDING'
       },
       include: {
-        initiator: true,
-        receiver: true
+        initiator: true
       }
     })
 
+    // Create host participant for the initiator
     await prisma.callParticipant.create({
       data: {
         callId: call.id,
@@ -44,14 +46,16 @@ export async function POST(request: NextRequest) {
       }
     })
 
-    if (receiverId) {
-      await prisma.callParticipant.create({
-        data: {
+    // Create participant entries for all receivers (excluding the initiator to avoid duplicates)
+    const participantReceiverIds = receiverIds.filter(id => id !== initiatorId);
+    if (participantReceiverIds.length > 0) {
+      await prisma.callParticipant.createMany({
+        data: participantReceiverIds.map(receiverId => ({
           callId: call.id,
           userId: receiverId,
           role: 'PARTICIPANT',
           status: 'CALLING'
-        }
+        }))
       })
     }
 
@@ -59,7 +63,6 @@ export async function POST(request: NextRequest) {
       where: { id: call.id },
       include: {
         initiator: true,
-        receiver: true,
         participants: {
           include: { user: true }
         }

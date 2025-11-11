@@ -28,9 +28,9 @@ export function ZeroProvider({ children }: ZeroProviderProps) {
     return {
       userID: user.id,
       auth: token, // Raw JWT token
-      server: 'http://localhost:4848',
+      server: 'http://localhost:6001',
       schema,
-      
+
       context: { userID: user.id }, // Context for syncedQueryWithContext
     };
   }, [user, token]);

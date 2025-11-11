@@ -21,7 +21,6 @@ model User {
   updatedAt DateTime   @updatedAt
 
   initiatedCalls Call[] @relation("CallInitiator")
-  receivedCalls  Call[] @relation("CallReceiver")
   callParticipants CallParticipant[]
 
   @@map("users")
@@ -30,7 +29,6 @@ model User {
 model Call {
   id          String      @id @default(cuid())
   initiatorId String
-  receiverId  String?
   status      CallStatus  @default(PENDING)
   type        CallType    @default(AUDIO)
   startedAt   DateTime    @default(now())
@@ -40,8 +38,7 @@ model Call {
   updatedAt   DateTime    @updatedAt
 
   initiator User @relation("CallInitiator", fields: [initiatorId], references: [id], onDelete: Cascade)
-  receiver  User? @relation("CallReceiver", fields: [receiverId], references: [id], onDelete: SetNull)
-  
+
   participants CallParticipant[]
 
   @@map("calls")

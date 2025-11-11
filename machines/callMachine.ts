@@ -1,15 +1,31 @@
 import { CallType } from "@/components/CallView";
+import { getCallParticipants } from "@/lib/zero/queries";
+import { CallParticipant, UserStatus } from "@/prisma/generated/zero/schema";
+import { QueryResultType } from "@rocicorp/zero";
 import { createMachine, createActor, fromPromise, assign } from "xstate";
+
+interface ApiCallResponse {
+  id: string;
+}
 
 interface CallContext {
   call_id?: string;
   call?: CallType;
+  participants: QueryResultType<typeof getCallParticipants>[number][];
 }
 
 type CallEvent =
   | { type: "CALL"; call_id?: string; call?: CallType }
-  | { type: "CONNECT" }
+  | { type: "CONNECT"; receiverIds?: string[]; callType?: "AUDIO" | "VIDEO" }
   | { type: "RING" }
+  | {
+      type: "UPDATE_PARTICIPANT";
+      participants: QueryResultType<typeof getCallParticipants>[number][];
+    }
+  | {
+      type: "ADD_PARTICIPANT";
+      participants: QueryResultType<typeof getCallParticipants>[number][];
+    }
   | { type: "ANSWER" }
   | { type: "DISCONNECT" }
   | { type: "REJECT" };
@@ -17,23 +33,15 @@ type CallEvent =
 export type CallState =
   | "idle"
   | "initiating_call"
+  | "call_created"
   | "failed_to_connect"
   | "calling"
   | "ringing"
   | "connected";
 
-const dummyCall: CallType = {
-  callId: "123",
-  participants: [
-    { name: "John Doe", id: "1", status: "online" },
-    { name: "Jane Doe", id: "2", status: "offline" },
-    { name: "Jim Doe", id: "3", status: "busy" },
-  ],
-};
-
 export const callMachine = createMachine(
   {
-    /** @xstate-layout N4IgpgJg5mDOIC5QGMCGAbdBZVyAWAlgHZgB0BE6YAxAMIDyAcowKK0AqA2gAwC6ioAA4B7WAQAuBYUQEgAHogDsADkWkAbACYALAE4ArOoDM+3dvWKANCACeibYu2llm5et3d9m9eoCMhgF8A6zRMHHxiMmIJAlRJIigAfVD0aghpKKIAN2EAazIU8MISciIYuOIklIRiHLRJaR5eJtkRMQaZJHlEX39lZ3VlbW4-X2G9I2s7BG1h0k0jWeUx-V6jTX0gkIxsXGLM8viqneowACcz4TPSQXQ4gDMrgFtSQr3I0sPK5J2a7OF6lIiE0Wl02jFpLIFAgVGotHpDCYzBYpohNJpfKRVr4-PpuL4jOtfMojFsQG8IiUUpVqAAlACSjAA4qChKIIZ1QNDevp+m4hiNeuNdJNbD18aRfJ4jOp9EYCS5lPptGSKftXjsaQARekAZQYzDYXD4rXZHShPQ2ag82lURm42n0ih82lRCF5mKMym48tcvJtulVOyKHzOlRpAEFGLqAOosWmskDg81dbmKTGKXQ4rSKRS87je-RuknqUgeVyKbjcXRuAvKINhd4lMMJGm0lgAKSNieTQItCF86dImezmlz+cLbqd+mHNfTpjxTrHDd2lLILag2r1BtYHB7Zr7qZ6Q5HPjHee9k7FCAsmOlWdh2kJeZXIap0hIyHEkGoOv1TF3Y1+DBA9ISPd1vGHWUF10XQ-HWUVpmWJxiX8YkSwxGtXybMh7lQAgqAgRJxGEZIPzAL9f23ADuxNED2kPLlEC8UtnX0GC4IJBY3SfTQNHTIUazcDxNmCclgxw0g8IIyBiNI5ByMouRYHEOIyFQe5vzOAAKe0qwASmoNUPmkwi5LIohP3EfcGLApiINY6CDFg+DuOvRZuFIbQFkUDZVgE+sySIYQIDgWRjJIU1bM5boEAAWnUN04pnWDUrStKn2wtdyEoMAoo5ft3H6XQRw2e0RXRRLr1MfpBn8bxiUcUwsvVaJJAqBIfkwfKU3szj5g2YlYKfBwxh4r15gLJ8lTlTxPBaj5qQSHrGNisZNE83oBQWf0nR4vwNAJL1lT8XR0UUBbm3DZb6IK8DvOLHQsUHR1zC9KUSUugpFO-CAVrs2KTDUKVtDGPRNCzIZXWvEk1BGXiPEUeVPEDMSItw-CzJIiyrP+mLoXWXRSCrVYzrrWChiq6ZZicOqvBrYxuBUdQgiCIA */
+    /** @xstate-layout N4IgpgJg5mDOIC5QGMCGAbdBZVyAWAlgHZgB0BE6YAxAMIDyAcowKK0AqA2gAwC6ioAA4B7WAQAuBYUQEgAHogCMAFgBs3UgE5uAVgDMADgDsmvcqPG9AGhABPROs2kj3M3tUAmIzsWbVOgF8AmzRMHHxiMmIJAlRJIigAfVD0aghpKKIAN2EAazIU8MISciIYuOIklIRiHLRJaR5eJtkRMQaZJHkld1VSHQNFDz09HwMPA2UbewRB0kVB425dRSMvVT0gkIxsXGLM8viqneowACcz4TPSQXQ4gDMrgFtSQr3I0sPK5J2a7OF6lIiE0Wl02jFpLIFAghtpnMM9B5VkZFGZVNNEB5-FpEQYBkjjKpLFsQG8IiUUskzmA4pBqABBAAijMSAAV6QAldgASVo3PZjC4fFaoghnVA0IAtIpVH0dNxlMMFUZVENlDoPBiEEYLM5XBM1opuKrFIFgqSdkUPpTkNTaRBqIzuQBlBjMNhC-hg0UdKGYxWkDxBpF6IzqxSrTV2JSoozzTQGIlBtSozQksn7V47Kk08R00FCH1Av0ISVBvTzFULbxqZTcBNavxxixGPQLVSKzwqdOW94UnaVR0ut2sDgFkDg31daGrJwa2vmTRqjZGLUDDQGUzy7hGnTKU0GHthPsFAcJagAVVZjPp7BYbM5PL5As9IvaxeniElngM-WUo1lbhxj8AwtV3DxSETYZvFlVQE1NI9dnJU9MEHcdJw-CUvxReZDATBNXFbLxrGjGEPE0HRSFVVQTCxcxPE0DxEKtEozkqQd6UYZ0AHUWA5dCi0hT8EH-OMBlVVx5RGGsdC1RNfyGU15SkkZEWYk9SDYhJBydV0mFHV9vXfISsIQTw4w2fcgONbgPD3EiZlbZRcNGINUTMNV1OQ15pBIZA8wdXSRw9ATjPFboYV0Jx1l8HQLCRHRGLk4xSFDMxTGMNZQy8zN7lQAgqAgRJxGEZJfLAfyhz090x2FIyxRLXdoqrCj4tNJLSMVCz9DixN1RVPRdByj48oKyBitK5BysquRYHEWlSFQe48zOAAKQblgASmoDMRvywqJrKog-PEUKGuEprAxa3qEo6mY20ozQ6wImU4LxRQgnNIhhAgOBZF2kg33O0zvxVP8APUYCiS1b9SGWZZtA1Y0UW0ZRhpKCgqCBqdTKGWV5gMRFFR0GidUULVIa0Oy63IhNRmUNNzQBg5JAqBIfkwbHMIimVlF-Pw6wGUYVHVMCNkgltQzUQwZQVdGUPQHN7S5kyIu4MCd0UKjCf-ZZzB3bx5azVCEhV8KpQArR5XGeUGaemU5J1SCDETCMFX3fQjCNrSoEqM2S3VZy+c9rFuAsHQI7AuynD8PQ-ATCODGWQ8md7bypuOiqAv94S8Wcjx9zsnwVA8etNEbU1SEFuPSYN1UjdGg6SqOk6c9MwY5yszRu9R40tWUAMRncuPW2MLFNk+oA */
     id: "callMachine",
     initial: "idle",
     types: {
@@ -43,6 +51,7 @@ export const callMachine = createMachine(
     context: {
       call_id: undefined,
       call: undefined,
+      participants: [],
     },
     states: {
       idle: {
@@ -52,11 +61,17 @@ export const callMachine = createMachine(
           },
         },
       },
+
       initiating_call: {
         invoke: {
-          src: "fetchCallId",
+          src: "createCallEntry",
+          input: ({ event }) => ({
+            receiverIds:
+              event.type === "CONNECT" ? event.receiverIds : undefined,
+            type: event.type === "CONNECT" ? event.callType : undefined,
+          }),
           onDone: {
-            target: "calling",
+            target: "call_created",
             actions: {
               type: "assignCallDataFromQuery",
             },
@@ -66,12 +81,19 @@ export const callMachine = createMachine(
           },
         },
       },
-      calling: {
+
+      call_created: {
+        always: {
+          target: "calling",
+          guard: "hasParticipants",
+        },
         on: {
-          RING: {
-            target: "ringing",
-            guard: "hasOnlineParticipants",
+          ADD_PARTICIPANT: {
+            actions: {
+              type: "addParticipant",
+            },
           },
+
           DISCONNECT: {
             target: "idle",
             actions: {
@@ -80,17 +102,34 @@ export const callMachine = createMachine(
           },
         },
       },
+
+      calling: {
+        always: {
+          target: "ringing",
+          guard: "hasOnlineParticipants",
+        },
+        on: {
+          DISCONNECT: {
+            target: "idle",
+            actions: {
+              type: "clearCallId",
+            },
+          },
+
+          UPDATE_PARTICIPANT: {
+            actions: {
+              type: "updateParticipant",
+            },
+          },
+        },
+      },
+
       ringing: {
         on: {
           ANSWER: {
             target: "connected",
           },
-          REJECT: {
-            target: "idle",
-            actions: {
-              type: "clearCallId",
-            },
-          },
+
           DISCONNECT: {
             target: "idle",
             actions: {
@@ -99,6 +138,7 @@ export const callMachine = createMachine(
           },
         },
       },
+
       connected: {
         on: {
           DISCONNECT: {
@@ -109,6 +149,7 @@ export const callMachine = createMachine(
           },
         },
       },
+
       failed_to_connect: {
         after: {
           3000: {
@@ -118,6 +159,7 @@ export const callMachine = createMachine(
             },
           },
         },
+
         on: {
           DISCONNECT: {
             target: "idle",
@@ -132,33 +174,65 @@ export const callMachine = createMachine(
   {
     guards: {
       hasOnlineParticipants: ({ context }) => {
-        if (!context.call?.participants) {
-          return false;
-        }
-        return context.call.participants.some(
-          (participant) => participant.status === "online"
+        return context.participants.some(
+          (participant) => participant.user?.status === UserStatus.ONLINE
+        );
+      },
+      hasParticipants: ({ context }) => {
+        return (
+          (context.participants && context.participants.length > 0) || false
         );
       },
     },
     actors: {
-      fetchCallId: fromPromise(async () => {
-        // Simulating an async query with random success/failure
-        return new Promise<{ call_id: string; call: CallType }>(
-          (resolve, reject) => {
-            setTimeout(() => {
-              // 70% success rate, 30% failure rate
-              if (Math.random() > 0.3) {
-                resolve({
-                  call_id: "123",
-                  call: dummyCall,
-                });
-              } else {
-                reject(new Error("Failed to generate call ID"));
-              }
-            }, 1000);
+      createCallEntry: fromPromise(
+        async ({
+          input,
+        }: {
+          input?: { receiverIds?: string[]; type?: "AUDIO" | "VIDEO" };
+        }) => {
+          try {
+            // Get authentication token from localStorage
+            const token = localStorage.getItem("auth_token");
+            if (!token) {
+              throw new Error("No authentication token found");
+            }
+
+            // Make API call to start the call
+            const response = await fetch("/api/calls/start", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${token}`,
+              },
+              body: JSON.stringify({
+                receiverIds: input?.receiverIds || [],
+                type: input?.type || "AUDIO",
+              }),
+            });
+
+            if (!response.ok) {
+              const errorData = await response.json();
+              throw new Error(
+                errorData.error || `Failed to start call: ${response.status}`
+              );
+            }
+
+            const data = await response.json();
+            const call: ApiCallResponse = data.call;
+
+            // Map API response to CallType format
+
+            return {
+              call_id: call.id,
+            };
+          } catch (error) {
+            console.error("createCallEntry error:", error);
+            // Throw the error to trigger onError transition to failed_to_connect
+            throw error;
           }
-        );
-      }),
+        }
+      ),
     },
     actions: {
       assignCallId: ({ context, event }) => {
@@ -178,6 +252,21 @@ export const callMachine = createMachine(
       clearCallId: ({ context }) => {
         context.call_id = undefined;
         context.call = undefined;
+      },
+      updateParticipant: ({ context, event }) => {
+        if (event.type === "UPDATE_PARTICIPANT") {
+          context.participants = event.participants.map(
+            (participant) => participant
+          );
+        }
+      },
+      addParticipant: ({ context, event }) => {
+        if (event.type === "ADD_PARTICIPANT") {
+          if (!context.participants) {
+            context.participants = [];
+          }
+          context.participants.push(...event.participants);
+        }
       },
     },
   }
