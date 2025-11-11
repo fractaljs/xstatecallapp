@@ -1,16 +1,42 @@
 import { CallType } from "@/components/CallView";
 import { getCallParticipants } from "@/lib/zero/queries";
-import { CallParticipant, UserStatus } from "@/prisma/generated/zero/schema";
+import { CallParticipant, UserStatus, ParticipantStatus, User } from "@/prisma/generated/zero/schema";
 import { QueryResultType } from "@rocicorp/zero";
-import { createMachine, createActor, fromPromise, assign } from "xstate";
+import { createMachine, createActor, fromPromise } from "xstate";
 
 interface ApiCallResponse {
   id: string;
+  initiatorId: string;
+  status: string;
+  type: string;
+  startedAt: string;
+  endedAt?: string;
+  duration?: number;
+  createdAt: string;
+  updatedAt: string;
+  initiator: User;
+  participants: Array<{
+    id: string;
+    callId: string;
+    userId: string;
+    joinedAt: string;
+    leftAt?: string;
+    role: string;
+    status: string;
+    user: User;
+  }>;
+}
+
+interface CreateCallOutput {
+  call_id: string;
+  call: ApiCallResponse;
+  initiator: User;
 }
 
 interface CallContext {
   call_id?: string;
   call?: CallType;
+  initiator?: User;
   participants: QueryResultType<typeof getCallParticipants>[number][];
 }
 
@@ -26,6 +52,7 @@ type CallEvent =
       type: "ADD_PARTICIPANT";
       participants: QueryResultType<typeof getCallParticipants>[number][];
     }
+  | { type: "INCOMING_CALL"; initiator: User; call_id?: string; call?: CallType }
   | { type: "ANSWER" }
   | { type: "DISCONNECT" }
   | { type: "REJECT" };
@@ -37,11 +64,12 @@ export type CallState =
   | "failed_to_connect"
   | "calling"
   | "ringing"
+  | "incoming"
   | "connected";
 
 export const callMachine = createMachine(
   {
-    /** @xstate-layout N4IgpgJg5mDOIC5QGMCGAbdBZVyAWAlgHZgB0BE6YAxAMIDyAcowKK0AqA2gAwC6ioAA4B7WAQAuBYUQEgAHogCMAFgBs3UgE5uAVgDMADgDsmvcqPG9AGhABPROs2kj3M3tUAmIzsWbVOgF8AmzRMHHxiMmIJAlRJIigAfVD0aghpKKIAN2EAazIU8MISciIYuOIklIRiHLRJaR5eJtkRMQaZJHkld1VSHQNFDz09HwMPA2UbewRB0kVB425dRSMvVT0gkIxsXGLM8viqneowACcz4TPSQXQ4gDMrgFtSQr3I0sPK5J2a7OF6lIiE0Wl02jFpLIFAghtpnMM9B5VkZFGZVNNEB5-FpEQYBkjjKpLFsQG8IiUUskzmA4pBqABBAAijMSAAV6QAldgASVo3PZjC4fFaoghnVA0IAtIpVH0dNxlMMFUZVENlDoPBiEEYLM5XBM1opuKrFIFgqSdkUPpTkNTaRBqIzuQBlBjMNhC-hg0UdKGYxWkDxBpF6IzqxSrTV2JSoozzTQGIlBtSozQksn7V47Kk08R00FCH1Av0ISVBvTzFULbxqZTcBNavxxixGPQLVSKzwqdOW94UnaVR0ut2sDgFkDg31daGrJwa2vmTRqjZGLUDDQGUzy7hGnTKU0GHthPsFAcJagAVVZjPp7BYbM5PL5As9IvaxeniElngM-WUo1lbhxj8AwtV3DxSETYZvFlVQE1NI9dnJU9MEHcdJw-CUvxReZDATBNXFbLxrGjGEPE0HRSFVVQTCxcxPE0DxEKtEozkqQd6UYZ0AHUWA5dCi0hT8EH-OMBlVVx5RGGsdC1RNfyGU15SkkZEWYk9SDYhJBydV0mFHV9vXfISsIQTw4w2fcgONbgPD3EiZlbZRcNGINUTMNV1OQ15pBIZA8wdXSRw9ATjPFboYV0Jx1l8HQLCRHRGLk4xSFDMxTGMNZQy8zN7lQAgqAgRJxGEZJfLAfyhz090x2FIyxRLXdoqrCj4tNJLSMVCz9DixN1RVPRdByj48oKyBitK5BysquRYHEWlSFQe48zOAAKQblgASmoDMRvywqJrKog-PEUKGuEprAxa3qEo6mY20ozQ6wImU4LxRQgnNIhhAgOBZF2kg33O0zvxVP8APUYCiS1b9SGWZZtA1Y0UW0ZRhpKCgqCBqdTKGWV5gMRFFR0GidUULVIa0Oy63IhNRmUNNzQBg5JAqBIfkwbHMIimVlF-Pw6wGUYVHVMCNkgltQzUQwZQVdGUPQHN7S5kyIu4MCd0UKjCf-ZZzB3bx5azVCEhV8KpQArR5XGeUGaemU5J1SCDETCMFX3fQjCNrSoEqM2S3VZy+c9rFuAsHQI7AuynD8PQ-ATCODGWQ8md7bypuOiqAv94S8Wcjx9zsnwVA8etNEbU1SEFuPSYN1UjdGg6SqOk6c9MwY5yszRu9R40tWUAMRncuPW2MLFNk+oA */
+    /** @xstate-layout N4IgpgJg5mDOIC5QGMCGAbdBZVyAWAlgHZgB0BE6YAxAMIDyAcowKK0AqA2gAwC6ioAA4B7WAQAuBYUQEgAHogCMAFgBs3UgE4AzKtUB2TQFZ9+gEyazADgA0IAJ6Jl+q6W5Xl2-cqOLNmvVUAXyC7NEwcfGIyCipqAElGBixEgHEAfVoAQQAZHJ5+JBARMUlpWQUEFX0NTUV9FR0rI2b9VTtHBE0rbVJFVTNtI2Uzes9LELCMbFxCEnIiCQJUSSIodPD0aghpGKIAN2EAazJNyLm9pZXidc2EYkO0MqICgtkSpfKiysVdVVIWopBkNFFZrMoOogrIo+tCrDVuL5zG1tJMQGdZtEFldVrdptQwAAnQnCQmkQToFYAM1JAFtSBiovNiDibhtpvcDsInlIXnw3kUPs8KkoLBpzNptKNTL81JCEGZVEYtFLmmDQW14ajQujpucsZsNoSwCtINQsgARC3pAAKWQASux4rR4nbGFw+O9RJ8ZN9EABafr-IzcEbaUNtIE+Mzy0yuGqq8yKbiqRSKIxoxkXBnTI0m8Rmi3xADKDGYbA9hSE3uFfoVI1IZiboy8PjT5nlaa8fW6qjBZjUv00mb1mPmhuQxtNEGoAurpV5IoQ-qbvXqqfhw1Uym43XlAX0pBc+m0oO3itGyhHETHp2mN2oRdLTFYHDnxRri7r9U0AIH2+cOp-y8eUWg0KwdBDbhk2GdMrGvGYmTvTAHwAVRtC0snYFhbQdJ0XTdSsvQXL5QEqf0jBDAFlGcMwjG0TxVE0QxO0GVxuBcNNUyGHxlHgnUswNe81lnT1BU-Uj5ADBo+m0CD5O4LwpRPVjjFIVMDEsbc2gsMwEP1eZCRuB8skYYsAHUWHtd8hS-MinG7FpU0UkNJX0YYjHlKw+z6UZKMRRTJSlfTb1IIy1jQjCsJwu1HWdV1TKI8SSN9eyEGUPxG1PXdmIy-pKM7QDSG0IDTCUlMMwE0ckLC4yRKfMtXyS+cfSXAZD1UBjkysFNuDozxYwY2ShibX4uoHEKavCqAHxsiTUqkhAlVcPQQ3UZMXEoiEHEQTQ+OK6DQx6TaLGCKqbxq4hkGEWkTLMyzrLElrazS-0d1cNUB1DdQdz27R9x3Yq2j6-rTxlSbsyum6H3tFgACkKzmlKlze9xSE+nc1FDXcBp2qpuGg9TFR8XRFICaEIYNaQSGQAsZ3QzDsNwuKCMSpHWrrYwND7AnLCMAc-BAvGgU6tw1qMOo5LTSnx2psBacLEtGsRp6P2R79EV-MxI2MFw-MsLz4SBhimlMQZ9BlsgqVQAgqAgdJxGEDY5dpx8lZfFWqzVjm0pgrWdZMdUJZjPGRg6+jA+3ExOsRS3SGt23IAdp3rqIGnxGoORYHEU1SFQKkC0JAAKcMCYASmoQT5gTu3k+dtP5fEdmXsWv3GwDvX0wNvHT2VPbdx6oNul8EIdSIYQIDgWQq7AYifcWijumo2j6MY5jNHlCitH8YfLxo7whjj2JZ+S+efkVf5QSlEYjAMGV5XUVw+Z3Cxuh44dzsQyHFkka41nZTAc8W4-G3E-bciIei+Bop5YWot4Ram8J1aEP044TinHTIBdlFrcE7NBGEfYGKl2cNBdyqDhJQEwZJciQx-hczBCGZQ-gMrtDxvCQ8VgOGpmTDRdMXg47TRuJQhalReKkD4vRcw6hNoFWFnRX8AQSpMWaGBdwR8iDXVumsIRS4VBgnRgQjUzgBi2GFs4Xo7gwwcO8D1ZiqCXYYNPsAqEwxGwZTor4FQZgcr7nTGIxEijTAkNTHHGuSdHb13Ttous0JfywRyv4bGLDOg0TMMVU8QVmJyUkdqEIQA */
     id: "callMachine",
     initial: "idle",
     types: {
@@ -51,6 +79,7 @@ export const callMachine = createMachine(
     context: {
       call_id: undefined,
       call: undefined,
+      initiator: undefined,
       participants: [],
     },
     states: {
@@ -58,6 +87,12 @@ export const callMachine = createMachine(
         on: {
           CONNECT: {
             target: "initiating_call",
+          },
+          INCOMING_CALL: {
+            target: "incoming",
+            actions: {
+              type: "assignIncomingCall",
+            },
           },
         },
       },
@@ -125,9 +160,19 @@ export const callMachine = createMachine(
       },
 
       ringing: {
+        always: {
+          target: "connected",
+          guard: "hasConnectedParticipants",
+        },
         on: {
           ANSWER: {
             target: "connected",
+          },
+
+          UPDATE_PARTICIPANT: {
+            actions: {
+              type: "updateParticipant",
+            },
           },
 
           DISCONNECT: {
@@ -139,8 +184,29 @@ export const callMachine = createMachine(
         },
       },
 
+      incoming: {
+        on: {
+          ANSWER: {
+            target: "connected",
+          },
+
+          REJECT: {
+            target: "idle",
+            actions: {
+              type: "clearCallId",
+            },
+          }
+        },
+      },
+
       connected: {
         on: {
+          UPDATE_PARTICIPANT: {
+            actions: {
+              type: "updateParticipant",
+            },
+          },
+
           DISCONNECT: {
             target: "idle",
             actions: {
@@ -168,7 +234,7 @@ export const callMachine = createMachine(
             },
           },
         },
-      },
+      }
     },
   },
   {
@@ -181,6 +247,11 @@ export const callMachine = createMachine(
       hasParticipants: ({ context }) => {
         return (
           (context.participants && context.participants.length > 0) || false
+        );
+      },
+      hasConnectedParticipants: ({ context }) => {
+        return context.participants.some(
+          (participant) => participant.status === ParticipantStatus.CONNECTED
         );
       },
     },
@@ -225,6 +296,8 @@ export const callMachine = createMachine(
 
             return {
               call_id: call.id,
+              call: call,
+              initiator: call.initiator,
             };
           } catch (error) {
             console.error("createCallEntry error:", error);
@@ -245,13 +318,33 @@ export const callMachine = createMachine(
           }
         }
       },
-      assignCallDataFromQuery: assign({
-        call_id: ({ event }: { event: any }) => event.output.call_id,
-        call: ({ event }: { event: any }) => event.output.call,
-      }),
+      assignCallDataFromQuery: ({ context, event }) => {
+        const output = (event as unknown as { output: CreateCallOutput }).output;
+        if (output?.call_id) {
+          context.call_id = output.call_id;
+        }
+        if (output?.call) {
+          context.call = output.call;
+        }
+        if (output?.initiator) {
+          context.initiator = output.initiator;
+        }
+      },
+      assignIncomingCall: ({ context, event }) => {
+        if (event.type === "INCOMING_CALL") {
+          context.initiator = event.initiator;
+          if (event.call_id) {
+            context.call_id = event.call_id;
+          }
+          if (event.call) {
+            context.call = event.call;
+          }
+        }
+      },
       clearCallId: ({ context }) => {
         context.call_id = undefined;
         context.call = undefined;
+        context.initiator = undefined;
       },
       updateParticipant: ({ context, event }) => {
         if (event.type === "UPDATE_PARTICIPANT") {

@@ -100,19 +100,19 @@ const CallHeader = ({ participants }: { participants: QueryResultType<typeof get
                             {(participants).map((participant: QueryResultType<typeof getCallParticipants>[number]) => (
                                 <div key={participant.id} className='flex items-center justify-between gap-2'>
                                     <p className='text-black text-base font-medium'>{participant.user?.email}</p>
-                                    <p className='text-black text-base font-medium'>{participant.user?.status === UserStatus.ONLINE ? "Ringing" : "Offline"}</p>
+                                    <p className='text-black text-base font-medium'>{participant.status.toLowerCase()}</p>
                                 </div>
                             ))}
                         </div>
-                        <h1 className='text-black text-lg font-medium tracking-tight'>Other users</h1>
-                        <div className='p-2 bg-gray-200 rounded-md space-y-4'>
-                            {(resetUsers).map((user: QueryResultType<typeof getUsers>[number]) => (
-                                <div key={user.id} className='flex items-center justify-between gap-2'>
-                                    <p className='text-black text-base font-medium'>{user?.email}</p>
-                                    <button className='bg-foreground text-background px-3 py-1 rounded-md text-sm font-medium'>Add</button>
-                                </div>
-                            ))}
-                        </div>
+                        {resetUsers.length > 0 && <><h1 className='text-black text-lg font-medium tracking-tight'>Other users</h1>
+                            <div className='p-2 bg-gray-200 rounded-md space-y-4'>
+                                {(resetUsers).map((user: QueryResultType<typeof getUsers>[number]) => (
+                                    <div key={user.id} className='flex items-center justify-between gap-2'>
+                                        <p className='text-black text-base font-medium'>{user?.email}</p>
+                                        <button className='bg-foreground text-background px-3 py-1 rounded-md text-sm font-medium'>Add</button>
+                                    </div>
+                                ))}
+                            </div> </>}
                     </div>
 
                 </Drawer.Content>

@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { useSelector } from "@xstate/react";
 import { callActor } from "@/machines/callMachine";
-import { getUsers } from "@/lib/zero/queries";
+import { getCalls, getUsers } from "@/lib/zero/queries";
 import { QueryResult, useQuery } from "@rocicorp/zero/react";
 import { useAuthContextValues } from "@/components/hooks/useAuthContextValue";
 import { User } from "@/prisma/generated/zero/schema";
@@ -21,6 +21,10 @@ export default function Home() {
       }
     });
   };
+
+  const context = useAuthContextValues();
+  const [calls] = useQuery(getCalls(context));
+  console.log("calls", calls);
 
   return (
     <div className="flex grow items-center justify-center bg-zinc-50 font-sans dark:bg-black">
