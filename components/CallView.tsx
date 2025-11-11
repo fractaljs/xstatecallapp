@@ -2,6 +2,7 @@
 import { useSelector } from '@xstate/react';
 import { callActor } from '@/machines/callMachine';
 import { Drawer } from 'vaul';
+import { Group, Minimize2, Users2Icon } from 'lucide-react';
 
 export type CallParticipants = {
     name: string;
@@ -22,11 +23,12 @@ const CallView = () => {
     return <Drawer.Root open={showCallView} defaultOpen={showCallView} dismissible={false}>
         <Drawer.Portal>
             <Drawer.Overlay className="fixed inset-0 bg-black/40" />
-            <Drawer.Content className="bg-white flex flex-col mt-24 h-screen fixed bottom-0 left-0 right-0 outline-none">
-                <div className="p-4 bg-white flex-1">
+            <Drawer.Content className="bg-[#040303] flex flex-col mt-24 h-screen fixed bottom-0 left-0 right-0 outline-none">
+                <div className="p-4 bg-[#040303] flex-1">
                     <div className="max-w-md mx-auto">
                         <Drawer.Title className="font-medium mb-4 text-white hidden">Call View</Drawer.Title>
 
+                        <CallHeader />
                     </div>
                     <button className="rounded-md mt-4 w-full bg-foreground px-3.5 py-2.5 text-sm font-semibold text-background shadow-sm hover:bg-foreground/80 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-600" onClick={() => callActor.send({ type: 'DISCONNECT' })}>Disconnect</button>
                 </div>
@@ -44,5 +46,21 @@ const dummyCall: CallType = {
     ],
 }
 
+const CallHeader = () => {
+    const state = useSelector(callActor, (snapshot) => snapshot.value);
+    const callStatus = state === "calling" ? "Calling" : "Ringing";
+    return <div className='flex items-center justify-between gap-2'>
+        <button className='size-10 bg-[#191818] rounded-full flex items-center justify-center'>
+            <Minimize2 className='text-white rotate-90' size={14} />
+        </button>
+        <div className='flex flex-col items-center justify-center text-center'>
+            <small className='text-white text-sm font-medium'>John Doe</small>
+            <small className='text-gray-50 text-xs font-medium'>{callStatus}</small>
+        </div>
+        <button className="size-10 bg-[#191818] rounded-full flex items-center justify-center">
+            <Users2Icon className="text-white" size={14} />
+        </button>
+    </div>
+}
 
 export default CallView;
