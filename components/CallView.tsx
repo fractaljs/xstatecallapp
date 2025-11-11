@@ -3,26 +3,27 @@ import { useSelector } from '@xstate/react';
 import { callActor } from '@/machines/callMachine';
 import { Drawer } from 'vaul';
 
-type CallParticipants = {
+export type CallParticipants = {
     name: string;
     id: string;
     status: 'online' | 'offline' | 'busy';
 }
 
-type Call = {
+export type CallType = {
     callId: string;
     participants: CallParticipants[];
 }
 
 const CallView = () => {
     const state = useSelector(callActor, (snapshot) => snapshot.value);
-    const showCallView = state === "on_call";
+    console.log("state", state);
+    const showCallView = state !== "idle";
 
     return <Drawer.Root open={showCallView} defaultOpen={showCallView} dismissible={false}>
         <Drawer.Portal>
             <Drawer.Overlay className="fixed inset-0 bg-black/40" />
-            <Drawer.Content className="bg-black flex flex-col mt-24 h-screen fixed bottom-0 left-0 right-0 outline-none">
-                <div className="p-4 bg-neutral-950 flex-1">
+            <Drawer.Content className="bg-white flex flex-col mt-24 h-screen fixed bottom-0 left-0 right-0 outline-none">
+                <div className="p-4 bg-white flex-1">
                     <div className="max-w-md mx-auto">
                         <Drawer.Title className="font-medium mb-4 text-white hidden">Call View</Drawer.Title>
 
@@ -34,7 +35,7 @@ const CallView = () => {
     </Drawer.Root>;
 };
 
-const dummyCall: Call = {
+const dummyCall: CallType = {
     callId: '123',
     participants: [
         { name: 'John Doe', id: '1', status: 'online' },
