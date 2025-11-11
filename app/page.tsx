@@ -1,11 +1,11 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useSelector } from "@xstate/react";
 import { callActor } from "@/machines/callMachine";
 import { getCalls, getUsers } from "@/lib/zero/queries";
 import { QueryResult, useQuery } from "@rocicorp/zero/react";
 import { useAuthContextValues } from "@/components/hooks/useAuthContextValue";
-import { User } from "@/prisma/generated/zero/schema";
+import { CallStatus, User } from "@/prisma/generated/zero/schema";
 
 export default function Home() {
   const state = useSelector(callActor, (snapshot) => snapshot.value);
@@ -23,13 +23,34 @@ export default function Home() {
   };
 
   const context = useAuthContextValues();
-  const [calls] = useQuery(getCalls(context));
-  console.log("calls", calls);
+  const [callsFromDB] = useQuery(getCalls(context));
+  const [usersFromDB] = useQuery(getUsers(context));
+  const incomingCalls = callsFromDB.filter(call => call.initiatorId !== context.userID);
+  console.log("incomingCalls", incomingCalls, state);
+
+  useEffect(() => {
+    if (incomingCalls.length > 0 && usersFromDB.length > 0) {
+      const incomingCall = incomingCalls[0];
+      const initiator = usersFromDB.find(user => user.id === incomingCall.initiatorId);
+
+      if (initiator) {
+        callActor.send({
+          type: 'INCOMING_CALL',
+          initiator: initiator,
+          call_id: incomingCall.id,
+          call: incomingCall
+        });
+      }
+    }
+  }, [incomingCalls, usersFromDB]);
+
+
 
   return (
     <div className="flex grow items-center justify-center bg-zinc-50 font-sans dark:bg-black">
       <main className="flex grow w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
         <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
+          <>{context.userID}</>
           <Users selectedUsers={selectedUsers} onUserToggle={toggleUserSelection} />
           {state === "on_call" && <button
 

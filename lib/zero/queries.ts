@@ -33,3 +33,11 @@ export const getCalls = syncedQueryWithContext(
     );
   }
 );
+
+export const getAllCalls = syncedQueryWithContext(
+  "getAllCalls",
+  z.tuple([]),
+  (ctx: QueryContext) => {
+    return builder.calls;
+  }
+);

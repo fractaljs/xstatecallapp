@@ -23,6 +23,7 @@ export type CallParticipants = {
 
 const CallView = () => {
     const state = useSelector(callActor, (snapshot) => snapshot.value);
+    const initiator = useSelector(callActor, (snapshot) => snapshot.context.initiator);
     console.log("state", state, callActor.getSnapshot().context);
     const showCallView = state !== "idle";
 
@@ -42,6 +43,48 @@ const CallView = () => {
 
     const [users] = useQuery(getUsers(context));
     console.log("users", users);
+
+    // Show incoming call UI
+    if (state === "incoming") {
+        return (
+            <Drawer.Root open={true} defaultOpen={true} dismissible={false}>
+                <Drawer.Portal>
+                    <Drawer.Overlay className="fixed inset-0 bg-black/40" />
+                    <Drawer.Content className="bg-[#040303] flex flex-col mt-24 h-screen fixed bottom-0 left-0 right-0 outline-none">
+                        <div className="p-4 bg-[#181414] flex-1">
+                            <div className="max-w-md mx-auto h-full flex flex-col justify-center items-center gap-6">
+                                <Drawer.Title className="font-medium mb-4 text-white hidden">Incoming Call</Drawer.Title>
+
+                                {/* Caller info */}
+                                <div className="text-center">
+                                    <h2 className="text-2xl font-semibold text-white mb-2">Incoming Call</h2>
+                                    <p className="text-lg text-gray-300">
+                                        {initiator?.name || initiator?.email || "Unknown Caller"}
+                                    </p>
+                                </div>
+
+                                {/* Accept/Reject buttons */}
+                                <div className="flex gap-4 w-full max-w-xs">
+                                    <button
+                                        className="flex-1 rounded-full bg-red-600 px-6 py-3 text-white font-semibold hover:bg-red-700 transition-colors"
+                                        onClick={() => callActor.send({ type: 'REJECT' })}
+                                    >
+                                        Reject
+                                    </button>
+                                    <button
+                                        className="flex-1 rounded-full bg-green-600 px-6 py-3 text-white font-semibold hover:bg-green-700 transition-colors"
+                                        onClick={() => callActor.send({ type: 'ANSWER' })}
+                                    >
+                                        Accept
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </Drawer.Content>
+                </Drawer.Portal>
+            </Drawer.Root>
+        );
+    }
 
     return <Drawer.Root open={showCallView} defaultOpen={showCallView} dismissible={false}>
         <Drawer.Portal>
@@ -75,13 +118,15 @@ const CallHeader = ({ participants }: { participants: QueryResultType<typeof get
         return null;
     }
 
+    const text = participants.map(participant => participant.user?.email).join(", ");
+
 
     return <div className='flex items-center justify-between gap-2 w-full'>
         <button disabled={true} className='size-10 bg-[#2c2525] rounded-full flex items-center justify-center outline-1 outline-neutral-700 active:scale-[0.95]'>
             <Minimize2 className='text-white rotate-90' size={14} />
         </button>
         <div className='flex flex-col items-center justify-center text-center'>
-            <small className='text-white text-sm font-medium'>John Doe</small>
+            <small className='text-white text-sm font-medium'>{text}</small>
             <small className='text-gray-50 text-xs font-medium'>{callStatus}</small>
         </div>
 

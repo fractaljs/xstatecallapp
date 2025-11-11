@@ -1,6 +1,11 @@
 import { CallType } from "@/components/CallView";
 import { getCallParticipants } from "@/lib/zero/queries";
-import { CallParticipant, UserStatus, ParticipantStatus, User } from "@/prisma/generated/zero/schema";
+import {
+  CallParticipant,
+  UserStatus,
+  ParticipantStatus,
+  User,
+} from "@/prisma/generated/zero/schema";
 import { QueryResultType } from "@rocicorp/zero";
 import { createMachine, createActor, fromPromise } from "xstate";
 
@@ -52,7 +57,12 @@ type CallEvent =
       type: "ADD_PARTICIPANT";
       participants: QueryResultType<typeof getCallParticipants>[number][];
     }
-  | { type: "INCOMING_CALL"; initiator: User; call_id?: string; call?: CallType }
+  | {
+      type: "INCOMING_CALL";
+      initiator: User;
+      call_id?: string;
+      call?: CallType;
+    }
   | { type: "ANSWER" }
   | { type: "DISCONNECT" }
   | { type: "REJECT" };
@@ -65,11 +75,13 @@ export type CallState =
   | "calling"
   | "ringing"
   | "incoming"
-  | "connected";
+  | "joining"
+  | "connected"
+  | "disconnecting";
 
 export const callMachine = createMachine(
   {
-    /** @xstate-layout N4IgpgJg5mDOIC5QGMCGAbdBZVyAWAlgHZgB0BE6YAxAMIDyAcowKK0AqA2gAwC6ioAA4B7WAQAuBYUQEgAHogCMAFgBs3UgE4AzKtUB2TQFZ9+gEyazADgA0IAJ6Jl+q6W5Xl2-cqOLNmvVUAXyC7NEwcfGIyCipqAElGBixEgHEAfVoAQQAZHJ5+JBARMUlpWQUEFX0NTUV9FR0rI2b9VTtHBE0rbVJFVTNtI2Uzes9LELCMbFxCEnIiCQJUSSIodPD0aghpGKIAN2EAazJNyLm9pZXidc2EYkO0MqICgtkSpfKiysVdVVIWopBkNFFZrMoOogrIo+tCrDVuL5zG1tJMQGdZtEFldVrdptQwAAnQnCQmkQToFYAM1JAFtSBiovNiDibhtpvcDsInlIXnw3kUPs8KkoLBpzNptKNTL81JCEGZVEYtFLmmDQW14ajQujpucsZsNoSwCtINQsgARC3pAAKWQASux4rR4nbGFw+O9RJ8ZN9EABafr-IzcEbaUNtIE+Mzy0yuGqq8yKbiqRSKIxoxkXBnTI0m8Rmi3xADKDGYbA9hSE3uFfoVI1IZiboy8PjT5nlaa8fW6qjBZjUv00mb1mPmhuQxtNEGoAurpV5IoQ-qbvXqqfhw1Uym43XlAX0pBc+m0oO3itGyhHETHp2mN2oRdLTFYHDnxRri7r9U0AIH2+cOp-y8eUWg0KwdBDbhk2GdMrGvGYmTvTAHwAVRtC0snYFhbQdJ0XTdSsvQXL5QEqf0jBDAFlGcMwjG0TxVE0QxO0GVxuBcNNUyGHxlHgnUswNe81lnT1BU-Uj5ADBo+m0CD5O4LwpRPVjjFIVMDEsbc2gsMwEP1eZCRuB8skYYsAHUWHtd8hS-MinG7FpU0UkNJX0YYjHlKw+z6UZKMRRTJSlfTb1IIy1jQjCsJwu1HWdV1TKI8SSN9eyEGUPxG1PXdmIy-pKM7QDSG0IDTCUlMMwE0ckLC4yRKfMtXyS+cfSXAZD1UBjkysFNuDozxYwY2ShibX4uoHEKavCqAHxsiTUqkhAlVcPQQ3UZMXEoiEHEQTQ+OK6DQx6TaLGCKqbxq4hkGEWkTLMyzrLElrazS-0d1cNUB1DdQdz27R9x3Yq2j6-rTxlSbsyum6H3tFgACkKzmlKlze9xSE+nc1FDXcBp2qpuGg9TFR8XRFICaEIYNaQSGQAsZ3QzDsNwuKCMSpHWrrYwND7AnLCMAc-BAvGgU6tw1qMOo5LTSnx2psBacLEtGsRp6P2R79EV-MxI2MFw-MsLz4SBhimlMQZ9BlsgqVQAgqAgdJxGEDY5dpx8lZfFWqzVjm0pgrWdZMdUJZjPGRg6+jA+3ExOsRS3SGt23IAdp3rqIGnxGoORYHEU1SFQKkC0JAAKcMCYASmoQT5gTu3k+dtP5fEdmXsWv3GwDvX0wNvHT2VPbdx6oNul8EIdSIYQIDgWQq7AYifcWijumo2j6MY5jNHlCitH8YfLxo7whjj2JZ+S+efkVf5QSlEYjAMGV5XUVw+Z3Cxuh44dzsQyHFkka41nZTAc8W4-G3E-bciIei+Bop5YWot4Ram8J1aEP044TinHTIBdlFrcE7NBGEfYGKl2cNBdyqDhJQEwZJciQx-hczBCGZQ-gMrtDxvCQ8VgOGpmTDRdMXg47TRuJQhalReKkD4vRcw6hNoFWFnRX8AQSpMWaGBdwR8iDXVumsIRS4VBgnRgQjUzgBi2GFs4Xo7gwwcO8D1ZiqCXYYNPsAqEwxGwZTor4FQZgcr7nTGIxEijTAkNTHHGuSdHb13Ttous0JfywRyv4bGLDOg0TMMVU8QVmJyUkdqEIQA */
+    /** @xstate-layout N4IgpgJg5mDOIC5QGMCGAbdBZVyAWAlgHZgB0BE6YAxAMIDyAcowKK0AqA2gAwC6ioAA4B7WAQAuBYUQEgAHogCMAFgBs3UgE4AzKtUB2TQFZ9+gEyazADgA0IAJ6Jl+q6W5Xl2-cqOLNmvVUAXyC7NEwcfGIyCipqAElGBixEgHEAfVoAQQAZHJ5+JBARMUlpWQUEFX0NTUV9FR0rI2b9VTtHBE0rbVJFVTNtI2Uzes9LELCMbFxCEnIiCQJUSSIodPD0aghpGKIAN2EAazJNyLm9pZXidc2EYkO0MqICgtkSpfKiysVdVVIWopBkNFFZrMoOogrIo+tCrDVuL5zG1tJMQGdZtEFldVrdptQwAAnQnCQmkQToFYAM1JAFtSBiovNiDibhtpvcDsInlIXnw3kUPs8KkoLBpzNptKNTL81JCEGZVEYtFLmmDQW14ajQujpucsZsNoSwCtINQsgARC3pAAKWQASux4rR4nbGFw+O9RJ8ZN9EABafr-IzcEbaUNtIE+Mzy0yuGqq8yKbiqRSKIxoxkXBnTI0m8Rmi3xADKDGYbA9hSE3uFfoVI1IZiboy8PjT5nlaa8fW6qjBZjUv00mb1mPmhuQxtNEGoAurpV5IoQ-qbvXqqfhw1Uym43XlAX0pBc+m0oO3itGyhHETHp2mN2oRdLTFYHDnxRri7r-Q0iMRKgHJs+1DeVlB0AFDG0AJJU0E9VGMa8ZiZO9MAfABVG0LSydgWFtB0nRdN1Ky9BcvlASp-SMEMAWUZwzCMbRPHgwxO0GVxuBcNNUyGHxlCsRD9XHe81lnT1BU-Mj5ADIFenhaNGIGbgm2aVjrFIKwAhUKCT10FwBNvUhCRuB8skYYsAHUWHtd8hS-cinG7FpU24IYXK8YYjHlKw+z6UYqL-SVJTMfTkMM4yRIwrCcLwx1nVdUziPE0jfXshAoOVVQvHMKwekVaFFU7SVf17eFvBDFoQuzIy1gfJ8y1fRL5x9JcBkPTLlGTKwUyU4ZtFjRi+klIwm1+Rio0qrFqqgB8bIklKpIQJVXD0EN1GTFwqIhBxEE0PjSHDZM+K8ZoLGCHUsyxYhkGEWkTLMyzrLEpra1S-0d1cNUB1DdQd12vrtq6Hd9raJT6M8eoGgm5kiGu26RPtFgACkK1m5Kl39BpegaaElO6ap4M7EwNDA7dNA4xVnO1KYb1CgArYQWREnZocOE4cxp7N6cZqBOUea5pFeJ6PzRus3u7Vy6mGaFnHg-7OllZUfD-PswWG3wobILnFhEokSTJClqTpdmkM5hntZ5h5uX5vleFR5rRc8Q8JfTPj8Z0Tsd2URsqL8TxVfoxQNYZaQSGQAsZ0i7DcLtWLCISu2XoW4wNGA3d6IHPwvFYzK3FWow6m0aFA-O0dQuuohQ-Dx8S3qlGhdsySfkRTRG0jYwXD8ywvPhYHGKaUxBn0IOIAIWBy8rh9mb2VmUJNrER7HkOwDDm5eat55BarYX7de09SG3bzht3XcDt+TsctqXadyGxV+iHkuOfn0fx+X3ECWJUlyUpcQaUJekLvmAvF+K81hrx5ALfk9c5roylC3Xs5gAj5TFO0AGZglLsQMDoZMTkehnWpnPQBz8l4gKgKJLeDd5oUSlGYUgg4ZTNlTCYQm1ElJRm8LpDi998GCTIFSVABAqAQHSOIYQGxiHiGrs+csb4oEi1StgluZg24mHVPnGMAMRhtQYio7cJhMqIiDnwgRkBhGiOARIuQsBxCmlIKgKkBZCQAApwzcG4AASmoAA3h-DBGmLERXV+Cc7ILQUa3VM7dVFdwBqeZUu1dxdSDN0dWaIiDCAgHAWQXiSI7wWoGUMsSOI9G8kMei+h5T+n+CobBzQjDbhcieDMD8CExEoGAbJicKL+EPGTFwhdMpqwJgDNM8YDpkyHNuNQQcWSSGuGsdkmB2nBJ+AfLQdSWgglop5IZOd4Ram8JlaEP0g4TinOHRZjdEDcE7NwNM+8eieFcc4G5+hGncIMpsG45zKEBiGP8ZOqtQz+A6igzopV1I5VTIdDqDEuG6kfvMKanyko5MqLxWhzQvCKkKVRLZ8t6JwMygEJJLRXH8SaTwhYsMkXPSWUoPiNDvI9A1DLawHsTxuA8GxOSXVYJBy1tS7eHSAyYyPKCZMFhpZtE0J2QItCAhgXJnoZMVM4XNODgEsOkAvlLmaF7DO9FfAAV3NKgGktaGIiggYGo65i5vNCkA8RAqKHoxFdjcVeMZYmvlh4Q8hh84GFcioKihifEmJEf4yu2q6zQhbsMZM-h-ChhTKBBskpRraULuYTKQcSAAHcAAEVjTT5sUFG0AIjBBKEPt7VshdwbuBNVQex0kNJaDbBuP6mVGJ2AAEbCHECI2kSgC41vYR4U8Da7BGSgHgcQAZ4Jtt8B2pikotq5ooOIPAoorkgDwGAAgM650ID4nYCioI4HtvPSu7tQzq30VreOzqw4QhBCAA */
     id: "callMachine",
     initial: "idle",
     types: {
@@ -87,6 +99,7 @@ export const callMachine = createMachine(
         on: {
           CONNECT: {
             target: "initiating_call",
+            guard: "hasReceivers",
           },
           INCOMING_CALL: {
             target: "incoming",
@@ -130,10 +143,7 @@ export const callMachine = createMachine(
           },
 
           DISCONNECT: {
-            target: "idle",
-            actions: {
-              type: "clearCallId",
-            },
+            target: "disconnecting",
           },
         },
       },
@@ -145,10 +155,7 @@ export const callMachine = createMachine(
         },
         on: {
           DISCONNECT: {
-            target: "idle",
-            actions: {
-              type: "clearCallId",
-            },
+            target: "disconnecting",
           },
 
           UPDATE_PARTICIPANT: {
@@ -176,10 +183,7 @@ export const callMachine = createMachine(
           },
 
           DISCONNECT: {
-            target: "idle",
-            actions: {
-              type: "clearCallId",
-            },
+            target: "disconnecting",
           },
         },
       },
@@ -187,15 +191,27 @@ export const callMachine = createMachine(
       incoming: {
         on: {
           ANSWER: {
-            target: "connected",
+            target: "joining",
           },
 
           REJECT: {
-            target: "idle",
-            actions: {
-              type: "clearCallId",
-            },
-          }
+            target: "disconnecting",
+          },
+        },
+      },
+
+      joining: {
+        invoke: {
+          src: "joinCall",
+          input: ({ context }) => ({
+            callId: context.call_id!,
+          }),
+          onDone: {
+            target: "connected",
+          },
+          onError: {
+            target: "failed_to_connect",
+          },
         },
       },
 
@@ -208,6 +224,33 @@ export const callMachine = createMachine(
           },
 
           DISCONNECT: {
+            target: "disconnecting",
+          },
+        },
+      },
+
+      disconnecting: {
+        always: [
+          {
+            target: "idle",
+            guard: "hasNoCallId",
+            actions: {
+              type: "clearCallId",
+            },
+          },
+        ],
+        invoke: {
+          src: "endCall",
+          input: ({ context }) => ({
+            callId: context.call_id!,
+          }),
+          onDone: {
+            target: "idle",
+            actions: {
+              type: "clearCallId",
+            },
+          },
+          onError: {
             target: "idle",
             actions: {
               type: "clearCallId",
@@ -234,7 +277,7 @@ export const callMachine = createMachine(
             },
           },
         },
-      }
+      },
     },
   },
   {
@@ -253,6 +296,15 @@ export const callMachine = createMachine(
         return context.participants.some(
           (participant) => participant.status === ParticipantStatus.CONNECTED
         );
+      },
+      hasNoCallId: ({ context }) => {
+        return !context.call_id;
+      },
+      hasReceivers: ({ event }) => {
+        if (event.type === "CONNECT") {
+          return !!(event.receiverIds && event.receiverIds.length > 0);
+        }
+        return false;
       },
     },
     actors: {
@@ -306,6 +358,74 @@ export const callMachine = createMachine(
           }
         }
       ),
+      endCall: fromPromise(
+        async ({ input }: { input: { callId: string } }) => {
+          try {
+            const token = localStorage.getItem("auth_token");
+            if (!token) {
+              throw new Error("No authentication token found");
+            }
+
+            const response = await fetch("/api/calls/leave", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${token}`,
+              },
+              body: JSON.stringify({
+                callId: input.callId,
+              }),
+            });
+            console.log("response", response);
+
+            if (!response.ok) {
+              const errorData = await response.json();
+              throw new Error(
+                errorData.error || `Failed to leave call: ${response.status}`
+              );
+            }
+
+            return await response.json();
+          } catch (error) {
+            console.error("endCall error:", error);
+            // Don't throw here - we still want to clear local state even if API fails
+            console.warn("Failed to leave call via API, clearing local state");
+          }
+        }
+      ),
+      joinCall: fromPromise(
+        async ({ input }: { input: { callId: string } }) => {
+          try {
+            const token = localStorage.getItem("auth_token");
+            if (!token) {
+              throw new Error("No authentication token found");
+            }
+
+            const response = await fetch("/api/calls/join", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${token}`,
+              },
+              body: JSON.stringify({
+                callId: input.callId,
+              }),
+            });
+
+            if (!response.ok) {
+              const errorData = await response.json();
+              throw new Error(
+                errorData.error || `Failed to join call: ${response.status}`
+              );
+            }
+
+            return await response.json();
+          } catch (error) {
+            console.error("joinCall error:", error);
+            throw error;
+          }
+        }
+      ),
     },
     actions: {
       assignCallId: ({ context, event }) => {
@@ -319,7 +439,8 @@ export const callMachine = createMachine(
         }
       },
       assignCallDataFromQuery: ({ context, event }) => {
-        const output = (event as unknown as { output: CreateCallOutput }).output;
+        const output = (event as unknown as { output: CreateCallOutput })
+          .output;
         if (output?.call_id) {
           context.call_id = output.call_id;
         }
@@ -332,9 +453,17 @@ export const callMachine = createMachine(
       },
       assignIncomingCall: ({ context, event }) => {
         if (event.type === "INCOMING_CALL") {
+          console.log("assignIncomingCall event:", event);
           context.initiator = event.initiator;
           if (event.call_id) {
             context.call_id = event.call_id;
+            console.log("Set call_id from event:", event.call_id);
+          } else if (event.call?.id) {
+            // Fallback: extract call_id from call object if available
+            context.call_id = event.call.id;
+            console.log("Set call_id from call.id:", event.call.id);
+          } else {
+            console.warn("No call_id found in incoming call event");
           }
           if (event.call) {
             context.call = event.call;

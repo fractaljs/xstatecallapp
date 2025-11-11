@@ -6,6 +6,7 @@ export async function POST(request: NextRequest) {
   try {
     const payload = await authenticateRequest(request)
     const { callId } = await request.json()
+    console.log("callId", callId);
 
     if (!callId) {
       return NextResponse.json(
